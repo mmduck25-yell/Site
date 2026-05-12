@@ -34,7 +34,6 @@ const IMAGE_DISPLAY_STEP = 10;
 const MIN_IMAGE_GAP = 0;
 const MAX_IMAGE_GAP = 48;
 const IMAGE_GAP_STEP = 4;
-const WEBTOON_IMAGE_WIDTH = 690;
 
 interface BlockEditorProps {
   blocks: Block[];
@@ -128,63 +127,20 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
     if (!block) return;
 
     const newImages: string[] = [...(block.images || [])];
-
-    const resizeImageForWebtoon = (file: File): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-
-        reader.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'));
-        reader.onload = () => {
-          const source = reader.result;
-          if (typeof source !== 'string') {
-            reject(new Error('이미지 형식이 올바르지 않습니다.'));
-            return;
-          }
-
-          const image = new window.Image();
-          image.onload = () => {
-            const targetWidth = WEBTOON_IMAGE_WIDTH;
-            const targetHeight = Math.round((image.height * targetWidth) / image.width);
-            const canvas = document.createElement('canvas');
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-
-            const context = canvas.getContext('2d');
-            if (!context) {
-              reject(new Error('이미지 변환에 실패했습니다.'));
-              return;
-            }
-
-            context.drawImage(image, 0, 0, targetWidth, targetHeight);
-            resolve(canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.92));
-          };
-          image.onerror = () => reject(new Error('이미지를 불러오지 못했습니다.'));
-          image.src = source;
-        };
-
-        reader.readAsDataURL(file);
-      });
-    };
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const imageUrl = block.imageViewType === 'webtoon'
-        ? await resizeImageForWebtoon(file)
-        : await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'));
-            reader.onload = (e) => {
-              if (typeof e.target?.result === 'string') {
-                resolve(e.target.result);
-              } else {
-                reject(new Error('이미지 형식이 올바르지 않습니다.'));
-              }
-            };
-            reader.readAsDataURL(file);
-          });
-
-      newImages.push(imageUrl);
+      const reader = new FileReader();
+      
+      await new Promise<void>((resolve) => {
+        reader.onload = (e) => {
+          if (e.target?.result) {
+            newImages.push(e.target.result as string);
+          }
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
     }
 
     updateBlock(blockId, { images: newImages, content: newImages[0] || '' });
@@ -301,7 +257,7 @@ export default function BlockEditor({ blocks, onChange, readOnly = false }: Bloc
                       className="max-w-[200px]"
                     />
                     <span className="text-xs text-muted-foreground">
-                      {block.imageViewType === 'webtoon' && '690px 너비, 세로 무제한'}
+                      {block.imageViewType === 'webtoon' && '750x8000px'}
                       {block.imageViewType === 'illustration' && 'A4 사이즈'}
                       {block.imageViewType === 'slide' && 'A4 사이즈(슬라이드)'}
                     </span>

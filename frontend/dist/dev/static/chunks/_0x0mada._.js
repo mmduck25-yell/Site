@@ -223,50 +223,123 @@ var _s = __turbopack_context__.k.signature(), _s1 = __turbopack_context__.k.sign
 ;
 const DataContext = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["createContext"])(undefined);
 const DATA_STORAGE_KEY = 'portfolio_site_data';
+const SITE_DATA_ENDPOINT = '/api/site-data';
+function normalizeSiteData(input) {
+    const source = input ?? {};
+    const authorProfileBlocks = Array.isArray(source.authorProfile?.blocks) ? source.authorProfile.blocks : __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"].authorProfile.blocks;
+    const mainPageBlocks = Array.isArray(source.mainPage?.blocks) ? source.mainPage.blocks.filter((block)=>block.content !== '환영합니다' && !block.content.includes('작가 포트폴리오 사이트입니다')) : __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"].mainPage.blocks;
+    return {
+        authorProfile: {
+            blocks: authorProfileBlocks,
+            updatedAt: source.authorProfile?.updatedAt ?? __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"].authorProfile.updatedAt
+        },
+        works: Array.isArray(source.works) ? source.works : __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"].works,
+        activities: Array.isArray(source.activities) ? source.activities : __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"].activities,
+        mainPage: {
+            banners: Array.isArray(source.mainPage?.banners) ? source.mainPage.banners : __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"].mainPage.banners,
+            blocks: mainPageBlocks,
+            updatedAt: source.mainPage?.updatedAt ?? __TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"].mainPage.updatedAt
+        }
+    };
+}
+async function loadSiteData() {
+    try {
+        const response = await fetch(SITE_DATA_ENDPOINT, {
+            cache: 'no-store'
+        });
+        if (!response.ok) {
+            return null;
+        }
+        const parsed = await response.json();
+        return normalizeSiteData(parsed);
+    } catch  {
+        return null;
+    }
+}
+async function saveSiteData(data) {
+    try {
+        await fetch(SITE_DATA_ENDPOINT, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+    } catch (error) {
+        console.warn('Failed to sync site data with backend:', error);
+    }
+}
 function DataProvider({ children }) {
     _s();
     const [data, setData] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"]);
     const [loading, setLoading] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(true);
-    // Load data from localStorage on mount
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "DataProvider.useEffect": ()=>{
-            const stored = localStorage.getItem(DATA_STORAGE_KEY);
-            if (stored) {
-                try {
-                    const parsed = JSON.parse(stored);
-                    // Remove the default greeting blocks if they exist to match the new design
-                    if (parsed.mainPage && parsed.mainPage.blocks) {
-                        parsed.mainPage.blocks = parsed.mainPage.blocks.filter({
-                            "DataProvider.useEffect": (b)=>b.content !== '환영합니다' && !b.content.includes('작가 포트폴리오 사이트입니다')
-                        }["DataProvider.useEffect"]);
+            let cancelled = false;
+            const load = {
+                "DataProvider.useEffect.load": async ()=>{
+                    const remoteData = await loadSiteData();
+                    if (remoteData) {
+                        if (!cancelled) {
+                            setData(remoteData);
+                            setLoading(false);
+                        }
+                        return;
                     }
-                    setData(parsed);
-                } catch  {
-                    setData(__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"]);
+                    try {
+                        const stored = localStorage.getItem(DATA_STORAGE_KEY);
+                        if (stored) {
+                            const parsed = JSON.parse(stored);
+                            const normalized = normalizeSiteData(parsed);
+                            if (!cancelled) {
+                                setData(normalized);
+                                setLoading(false);
+                            }
+                            return;
+                        }
+                    } catch  {
+                    // Fall through to the default state.
+                    }
+                    if (!cancelled) {
+                        setData(__TURBOPACK__imported__module__$5b$project$5d2f$lib$2f$data$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["defaultSiteData"]);
+                        setLoading(false);
+                    }
                 }
-            }
-            setLoading(false);
+            }["DataProvider.useEffect.load"];
+            void load();
+            return ({
+                "DataProvider.useEffect": ()=>{
+                    cancelled = true;
+                }
+            })["DataProvider.useEffect"];
         }
     }["DataProvider.useEffect"], []);
-    // Save data to localStorage whenever it changes
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useEffect"])({
         "DataProvider.useEffect": ()=>{
-            if (!loading) {
-                try {
-                    localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(data));
-                } catch (e) {
-                    // Handle quota exceeded error - try to clear old data and retry
-                    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-                        console.warn('localStorage quota exceeded, clearing and retrying...');
-                        try {
-                            localStorage.removeItem(DATA_STORAGE_KEY);
-                            localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(data));
-                        } catch  {
-                            console.error('Failed to save data to localStorage');
+            if (loading) {
+                return;
+            }
+            const timeoutId = window.setTimeout({
+                "DataProvider.useEffect.timeoutId": ()=>{
+                    try {
+                        localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(data));
+                    } catch (error) {
+                        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+                            console.warn('localStorage quota exceeded, clearing and retrying...');
+                            try {
+                                localStorage.removeItem(DATA_STORAGE_KEY);
+                                localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(data));
+                            } catch  {
+                                console.error('Failed to save data to localStorage');
+                            }
                         }
                     }
+                    void saveSiteData(data);
                 }
-            }
+            }["DataProvider.useEffect.timeoutId"], 300);
+            return ({
+                "DataProvider.useEffect": ()=>window.clearTimeout(timeoutId)
+            })["DataProvider.useEffect"];
         }
     }["DataProvider.useEffect"], [
         data,
@@ -423,7 +496,7 @@ function DataProvider({ children }) {
         children: children
     }, void 0, false, {
         fileName: "[project]/contexts/DataContext.tsx",
-        lineNumber: 188,
+        lineNumber: 270,
         columnNumber: 5
     }, this);
 }

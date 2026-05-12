@@ -3579,6 +3579,11 @@
     transition-duration: 1s;
   }
 
+  .ease-in {
+    --tw-ease: var(--ease-in);
+    transition-timing-function: var(--ease-in);
+  }
+
   .ease-in-out {
     --tw-ease: var(--ease-in-out);
     transition-timing-function: var(--ease-in-out);
@@ -4677,6 +4682,10 @@
 
   .has-\[\>kbd\]\:ml-\[-0\.35rem\]:has( > kbd) {
     margin-left: -.35rem;
+  }
+
+  .has-\[\>q\1 �\]\:h-auto:has() {
+    height: auto;
   }
 
   .has-\[\>svg\]\:grid-cols-\[calc\(var\(--spacing\)\*4\)_1fr\]:has( > svg) {

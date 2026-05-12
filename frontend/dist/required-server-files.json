@@ -104,7 +104,7 @@
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "C:\\Users\\KUMA_LAB\\Music\\site\\project\\frontend",
+    "outputFileTracingRoot": "c:\\Users\\KUMA_LAB\\Music\\site\\project\\frontend",
     "cacheComponents": false,
     "cacheLife": {
       "default": {
@@ -304,11 +304,11 @@
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.mjs",
     "turbopack": {
-      "root": "C:\\Users\\KUMA_LAB\\Music\\site\\project\\frontend"
+      "root": "c:\\Users\\KUMA_LAB\\Music\\site\\project\\frontend"
     },
     "distDirRoot": "dist"
   },
-  "appDir": "C:\\Users\\KUMA_LAB\\Music\\site\\project\\frontend",
+  "appDir": "c:\\Users\\KUMA_LAB\\Music\\site\\project\\frontend",
   "relativeAppDir": "",
   "files": [
     "dist\\routes-manifest.json",

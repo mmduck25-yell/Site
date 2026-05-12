@@ -25,41 +25,119 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const DATA_STORAGE_KEY = 'portfolio_site_data';
+const SITE_DATA_ENDPOINT = '/api/site-data';
+
+function normalizeSiteData(input: Partial<SiteData> | null | undefined): SiteData {
+  const source = input ?? {};
+  const authorProfileBlocks = Array.isArray(source.authorProfile?.blocks)
+    ? source.authorProfile!.blocks
+    : defaultSiteData.authorProfile.blocks;
+  const mainPageBlocks = Array.isArray(source.mainPage?.blocks)
+    ? source.mainPage!.blocks.filter(
+        (block: Block) => block.content !== '환영합니다' && !block.content.includes('작가 포트폴리오 사이트입니다')
+      )
+    : defaultSiteData.mainPage.blocks;
+
+  return {
+    authorProfile: {
+      blocks: authorProfileBlocks,
+      updatedAt: source.authorProfile?.updatedAt ?? defaultSiteData.authorProfile.updatedAt,
+    },
+    works: Array.isArray(source.works) ? source.works : defaultSiteData.works,
+    activities: Array.isArray(source.activities) ? source.activities : defaultSiteData.activities,
+    mainPage: {
+      banners: Array.isArray(source.mainPage?.banners) ? source.mainPage!.banners : defaultSiteData.mainPage.banners,
+      blocks: mainPageBlocks,
+      updatedAt: source.mainPage?.updatedAt ?? defaultSiteData.mainPage.updatedAt,
+    },
+  };
+}
+
+async function loadSiteData(): Promise<SiteData | null> {
+  try {
+    const response = await fetch(SITE_DATA_ENDPOINT, { cache: 'no-store' });
+    if (!response.ok) {
+      return null;
+    }
+
+    const parsed = (await response.json()) as Partial<SiteData>;
+    return normalizeSiteData(parsed);
+  } catch {
+    return null;
+  }
+}
+
+async function saveSiteData(data: SiteData) {
+  try {
+    await fetch(SITE_DATA_ENDPOINT, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+  } catch (error) {
+    console.warn('Failed to sync site data with backend:', error);
+  }
+}
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<SiteData>(defaultSiteData);
   const [loading, setLoading] = useState(true);
 
-  // Load data from localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem(DATA_STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        
-        // Remove the default greeting blocks if they exist to match the new design
-        if (parsed.mainPage && parsed.mainPage.blocks) {
-          parsed.mainPage.blocks = parsed.mainPage.blocks.filter(
-            (b: Block) => b.content !== '환영합니다' && !b.content.includes('작가 포트폴리오 사이트입니다')
-          );
+    let cancelled = false;
+
+    const load = async () => {
+      const remoteData = await loadSiteData();
+
+      if (remoteData) {
+        if (!cancelled) {
+          setData(remoteData);
+          setLoading(false);
         }
-        
-        setData(parsed);
-      } catch {
-        setData(defaultSiteData);
+        return;
       }
-    }
-    setLoading(false);
+
+      try {
+        const stored = localStorage.getItem(DATA_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as Partial<SiteData>;
+          const normalized = normalizeSiteData(parsed);
+
+          if (!cancelled) {
+            setData(normalized);
+            setLoading(false);
+          }
+          return;
+        }
+      } catch {
+        // Fall through to the default state.
+      }
+
+      if (!cancelled) {
+        setData(defaultSiteData);
+        setLoading(false);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (!loading) {
+    if (loading) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
       try {
         localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(data));
-      } catch (e) {
-        // Handle quota exceeded error - try to clear old data and retry
-        if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
           console.warn('localStorage quota exceeded, clearing and retrying...');
           try {
             localStorage.removeItem(DATA_STORAGE_KEY);
@@ -69,7 +147,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-    }
+
+      void saveSiteData(data);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
   }, [data, loading]);
 
   const updateMainPageBlocks = (blocks: Block[]) => {
