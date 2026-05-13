@@ -14,3 +14,6 @@ next.user-config.*
 node_modules
 .next/
 .DS_Store
+
+# Ignore backup of nested git metadata
+backend/.git_backup*
